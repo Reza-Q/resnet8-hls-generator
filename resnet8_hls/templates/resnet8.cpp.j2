@@ -1,0 +1,42 @@
+{% for header in includes %}
+#include "{{ header }}"
+{% endfor %}
+
+void read_input(hls::stream<data_t> &s, data_t buf[NET_C_IN][NET_H_IN][NET_W_IN]) {
+    for (int c = 0; c < NET_C_IN; c++)
+        for (int h = 0; h < NET_H_IN; h++)
+            for (int w = 0; w < NET_W_IN; w++) {
+                #pragma HLS PIPELINE II=1
+                buf[c][h][w] = s.read();
+            }
+}
+
+void write_output(data_t buf[NET_C_OUT], hls::stream<data_t> &s) {
+    for (int i = 0; i < NET_C_OUT; i++) {
+        #pragma HLS PIPELINE II=1
+        s.write(buf[i]);
+    }
+}
+
+void resnet8(
+    hls::stream<data_t> &input_stream,
+    hls::stream<data_t> &output_stream)
+{
+#pragma HLS INTERFACE axis port=input_stream
+#pragma HLS INTERFACE axis port=output_stream
+#pragma HLS INTERFACE ap_ctrl_hs port=return
+{% if use_dataflow %}
+#pragma HLS DATAFLOW
+{% endif %}
+
+    data_t input[NET_C_IN][NET_H_IN][NET_W_IN];
+{% for buffer in buffers %}
+    {{ buffer }}
+{% endfor %}
+
+    read_input(input_stream, input);
+{% for call in calls %}
+    {{ call }}
+{% endfor %}
+    write_output(b_fc, output_stream);
+}

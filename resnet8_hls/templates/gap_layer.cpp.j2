@@ -1,0 +1,15 @@
+#include "gap_layer.hpp"
+typedef ap_fixed<{{ acc_w }},{{ acc_i }},AP_TRN,AP_SAT> gap_acc_t;
+static const gap_acc_t GAP_INV_HW = gap_acc_t(1.0f / ({{ h }} * {{ w }}));
+
+void gap_layer(data_t input[{{ c }}][{{ h }}][{{ w }}], data_t output[{{ c }}]) {
+    GAP_LOOP_CH: for (int ch = 0; ch < {{ c }}; ch++) {
+        gap_acc_t sum = 0;
+        GAP_LOOP_H: for (int i = 0; i < {{ h }}; i++)
+            GAP_LOOP_W: for (int j = 0; j < {{ w }}; j++) {
+                #pragma HLS PIPELINE II=1
+                sum += (gap_acc_t)input[ch][i][j];
+            }
+        output[ch] = (data_t)(sum * GAP_INV_HW);
+    }
+}

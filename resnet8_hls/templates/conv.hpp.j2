@@ -1,0 +1,15 @@
+#pragma once
+#include "common.hpp"
+
+#define {{ NAME }}_C_IN   {{ c_in }}
+#define {{ NAME }}_C_OUT  {{ c_out }}
+#define {{ NAME }}_H_IN   {{ h_in }}
+#define {{ NAME }}_W_IN   {{ w_in }}
+#define {{ NAME }}_H_OUT  {{ h_out }}
+#define {{ NAME }}_W_OUT  {{ w_out }}
+#define {{ NAME }}_STRIDE {{ stride }}
+
+void {{ func }}(
+    data_t input [{{ c_in }}][{{ h_in }}][{{ w_in }}],
+    data_t output[{{ c_out }}][{{ h_out }}][{{ w_out }}]
+);

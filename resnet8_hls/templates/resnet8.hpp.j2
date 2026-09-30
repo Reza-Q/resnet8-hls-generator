@@ -1,0 +1,16 @@
+#pragma once
+#include <hls_stream.h>
+#include "common.hpp"
+
+typedef {{ acc_type }} acc_t;
+
+#define NET_H_IN  {{ input_size }}
+#define NET_W_IN  {{ input_size }}
+#define NET_C_IN  {{ img_channels }}
+#define NET_C_OUT {{ fc_out }}
+#define NET_IN_SIZE (NET_C_IN * NET_H_IN * NET_W_IN)
+
+void resnet8(
+    hls::stream<data_t> &input_stream,
+    hls::stream<data_t> &output_stream
+);

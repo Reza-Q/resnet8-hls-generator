@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Editors, notebooks and operating systems
+.idea/
+.vscode/
+.ipynb_checkpoints/
+.DS_Store
+Thumbs.db
+
+# CIFAR-10 (downloaded automatically by torchvision)
+/data/
+
+# Generated HLS projects and Vitis HLS run artifacts
+/hls_output/
+/pragma_*/
+resnet8_P*/
+.Xil/
+*.jou
+vitis_hls.log
+vivado*.log
+
+# Model checkpoints are large binary files: keep the folder, not the weights.
+# Share them with Git LFS or as a GitHub release asset instead.
+/models/*.pth
+/models/*.pt
+/models/*.ckpt
+!/models/.gitkeep
+!/models/README.md

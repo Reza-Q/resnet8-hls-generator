@@ -1,0 +1,60 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "resnet8-hls-generator"
+version = "0.1.0"
+description = "Generate quantized Vitis HLS C++ projects (eight pragma configurations) from a trained PyTorch CIFAR-10 ResNet."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+keywords = ["fpga", "hls", "vitis-hls", "quantization", "resnet", "pytorch", "cifar-10"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: System :: Hardware",
+    "Typing :: Typed",
+]
+dependencies = [
+    "numpy>=1.24",
+    "torch>=2.0",
+    "torchvision>=0.15",
+    "jinja2>=3.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4",
+    "ruff>=0.6",
+]
+
+[project.scripts]
+resnet8-hls = "resnet8_hls.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/YOUR_USERNAME/resnet8-hls-generator"
+Issues = "https://github.com/YOUR_USERNAME/resnet8-hls-generator/issues"
+
+[tool.setuptools.packages.find]
+include = ["resnet8_hls*"]
+
+[tool.setuptools.package-data]
+resnet8_hls = ["templates/*.j2", "py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+extend-exclude = ["hls_output"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "C4", "SIM"]

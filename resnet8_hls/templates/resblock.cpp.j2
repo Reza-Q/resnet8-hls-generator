@@ -1,0 +1,141 @@
+#include "{{ func }}.hpp"
+
+typedef ap_fixed<{{ data_w }},{{ data_i }},AP_TRN,AP_SAT> {{ NAME }}_local_t;
+typedef ap_fixed<{{ acc_w }},{{ acc_i }},AP_TRN,AP_SAT>   {{ NAME }}_acc_t;
+
+static const {{ NAME }}_local_t {{ func }}_w1[{{ c_mid }}][{{ c_in }}][3][3] =
+{{ w1 }};
+static const {{ NAME }}_acc_t {{ func }}_b1[{{ c_mid }}] = {{ b1 }};
+
+static const {{ NAME }}_local_t {{ func }}_w2[{{ c_out }}][{{ c_mid }}][3][3] =
+{{ w2 }};
+static const {{ NAME }}_acc_t {{ func }}_b2[{{ c_out }}] = {{ b2 }};
+
+{% if has_proj %}
+static const {{ NAME }}_local_t {{ func }}_wp[{{ c_out }}][{{ c_in }}] =
+{{ wp }};
+static const {{ NAME }}_acc_t {{ func }}_bp[{{ c_out }}] = {{ bp }};
+{% endif %}
+
+void {{ func }}(
+    data_t input [{{ c_in }}][{{ h_in }}][{{ w_in }}],
+    data_t output[{{ c_out }}][{{ h_out }}][{{ w_out }}])
+{
+{% if partition_w_factor == 0 %}
+    #pragma HLS ARRAY_PARTITION variable={{ func }}_w1 dim=4 complete
+    #pragma HLS ARRAY_PARTITION variable={{ func }}_w2 dim=4 complete
+{% elif partition_w_factor > 1 %}
+    #pragma HLS ARRAY_PARTITION variable={{ func }}_w1 dim=4 cyclic factor={{ partition_w_factor }}
+    #pragma HLS ARRAY_PARTITION variable={{ func }}_w2 dim=4 cyclic factor={{ partition_w_factor }}
+{% endif %}
+{% if partition_mid_factor == 0 %}
+    #pragma HLS ARRAY_PARTITION variable=mid dim=1 complete
+{% elif partition_mid_factor > 1 %}
+    #pragma HLS ARRAY_PARTITION variable=mid dim=1 cyclic factor={{ partition_mid_factor }}
+{% endif %}
+
+    data_t mid[{{ c_mid }}][{{ h_out }}][{{ w_out }}];
+    {% if has_proj %}data_t skip[{{ c_out }}][{{ h_out }}][{{ w_out }}];{% endif %}
+
+    // conv1 (stride={{ stride }}) + relu
+    LOOP_OC_1: for (int oc = 0; oc < {{ c_mid }}; oc++) {
+        LOOP_OH_1: for (int oh = 0; oh < {{ h_out }}; oh++) {
+            LOOP_OW_1: for (int ow = 0; ow < {{ w_out }}; ow++) {
+                #pragma HLS PIPELINE II={{ conv_ii }}
+                {{ NAME }}_acc_t acc = {{ func }}_b1[oc];
+                LOOP_IC_1: for (int ic = 0; ic < {{ c_in }}; ic++) {
+{% if unroll_ic1 == 0 %}
+                    #pragma HLS UNROLL
+{% elif unroll_ic1 > 1 %}
+                    #pragma HLS UNROLL factor={{ unroll_ic1 }}
+{% endif %}
+                    LOOP_KH_1: for (int kh = 0; kh < 3; kh++) {
+{% if unroll_kh > 1 %}
+                        #pragma HLS UNROLL factor={{ unroll_kh }}
+{% endif %}
+                        LOOP_KW_1: for (int kw = 0; kw < 3; kw++) {
+{% if unroll_kw > 1 %}
+                            #pragma HLS UNROLL factor={{ unroll_kw }}
+{% endif %}
+                            int ih = oh * {{ stride }} - 1 + kh;
+                            int iw = ow * {{ stride }} - 1 + kw;
+                            if (ih >= 0 && ih < {{ h_in }} && iw >= 0 && iw < {{ w_in }})
+                                acc += ({{ NAME }}_acc_t){{ func }}_w1[oc][ic][kh][kw] *
+                                       ({{ NAME }}_acc_t)input[ic][ih][iw];
+                        }
+                    }
+                }
+                mid[oc][oh][ow] = (acc > ({{ NAME }}_acc_t)0)
+                                  ? (data_t)acc : (data_t)0;
+            }
+        }
+    }
+
+    // conv2 (stride=1)
+    LOOP_OC_2: for (int oc = 0; oc < {{ c_out }}; oc++) {
+        LOOP_OH_2: for (int oh = 0; oh < {{ h_out }}; oh++) {
+            LOOP_OW_2: for (int ow = 0; ow < {{ w_out }}; ow++) {
+                #pragma HLS PIPELINE II={{ conv_ii }}
+                {{ NAME }}_acc_t acc = {{ func }}_b2[oc];
+                LOOP_IC_2: for (int ic = 0; ic < {{ c_mid }}; ic++) {
+{% if unroll_ic2 == 0 %}
+                    #pragma HLS UNROLL
+{% elif unroll_ic2 > 1 %}
+                    #pragma HLS UNROLL factor={{ unroll_ic2 }}
+{% endif %}
+                    LOOP_KH_2: for (int kh = 0; kh < 3; kh++) {
+{% if unroll_kh > 1 %}
+                        #pragma HLS UNROLL factor={{ unroll_kh }}
+{% endif %}
+                        LOOP_KW_2: for (int kw = 0; kw < 3; kw++) {
+{% if unroll_kw > 1 %}
+                            #pragma HLS UNROLL factor={{ unroll_kw }}
+{% endif %}
+                            int ih = oh - 1 + kh;
+                            int iw = ow - 1 + kw;
+                            if (ih >= 0 && ih < {{ h_out }} && iw >= 0 && iw < {{ w_out }})
+                                acc += ({{ NAME }}_acc_t){{ func }}_w2[oc][ic][kh][kw] *
+                                       ({{ NAME }}_acc_t)mid[ic][ih][iw];
+                        }
+                    }
+                }
+                output[oc][oh][ow] = (data_t)acc;
+            }
+        }
+    }
+
+{% if has_proj %}
+    // projection shortcut
+    LOOP_PROJ: for (int oc = 0; oc < {{ c_out }}; oc++) {
+        LOOP_PROJ_H: for (int oh = 0; oh < {{ h_out }}; oh++) {
+            LOOP_PROJ_W: for (int ow = 0; ow < {{ w_out }}; ow++) {
+                #pragma HLS PIPELINE II=1
+                {{ NAME }}_acc_t acc = {{ func }}_bp[oc];
+                LOOP_PROJ_IC: for (int ic = 0; ic < {{ c_in }}; ic++) {
+{% if unroll_ic1 > 1 %}
+                    #pragma HLS UNROLL factor={{ unroll_ic1 }}
+{% endif %}
+                    acc += ({{ NAME }}_acc_t){{ func }}_wp[oc][ic] *
+                           ({{ NAME }}_acc_t)input[ic][oh * {{ stride }}][ow * {{ stride }}];
+                }
+                skip[oc][oh][ow] = (data_t)acc;
+            }
+        }
+    }
+{% endif %}
+
+    // elementwise add + relu
+    LOOP_ADD: for (int oc = 0; oc < {{ c_out }}; oc++)
+        LOOP_ADD_H: for (int oh = 0; oh < {{ h_out }}; oh++)
+            LOOP_ADD_W: for (int ow = 0; ow < {{ w_out }}; ow++) {
+                #pragma HLS PIPELINE II=1
+{% if has_proj %}
+                {{ NAME }}_acc_t s = ({{ NAME }}_acc_t)output[oc][oh][ow]
+                                   + ({{ NAME }}_acc_t)skip[oc][oh][ow];
+{% else %}
+                {{ NAME }}_acc_t s = ({{ NAME }}_acc_t)output[oc][oh][ow]
+                                   + ({{ NAME }}_acc_t)input[oc][oh][ow];
+{% endif %}
+                output[oc][oh][ow] = (s > ({{ NAME }}_acc_t)0) ? (data_t)s : (data_t)0;
+            }
+}

@@ -1,0 +1,7 @@
+# Runtime dependencies. pyproject.toml is the source of truth; this file is a convenience
+# for `pip install -r requirements.txt`. For CPU-only PyTorch wheels, install torch first:
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+numpy>=1.24
+torch>=2.0
+torchvision>=0.15
+jinja2>=3.1

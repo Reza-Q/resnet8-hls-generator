@@ -1,0 +1,38 @@
+#include <stdio.h>
+#include <math.h>
+#include "hls_stream.h"
+#include "resnet8.hpp"
+#include "testbench/test_samples.h"
+
+int main() {
+    int passed = 0, failed = 0;
+    hls::stream<data_t> in_s("in_s");
+    hls::stream<data_t> out_s("out_s");
+    for (int s = 0; s < TB_N; s++) {
+        while (!in_s.empty())  in_s.read();
+        while (!out_s.empty()) out_s.read();
+        for (int c = 0; c < TB_C_IN; c++)
+            for (int h = 0; h < TB_H; h++)
+                for (int w = 0; w < TB_W; w++)
+                    in_s.write((data_t)tb_input[s][c][h][w]);
+        resnet8(in_s, out_s);
+        data_t hw_out[TB_C_OUT];
+        for (int i = 0; i < TB_C_OUT; i++) hw_out[i] = out_s.read();
+        int pred = 0;
+        for (int i = 1; i < TB_C_OUT; i++)
+            if (hw_out[i] > hw_out[pred]) pred = i;
+        float max_diff = 0.0f;
+        for (int i = 0; i < TB_C_OUT; i++) {
+            float d = fabsf((float)hw_out[i] - tb_ref_logits[s][i]);
+            if (d > max_diff) max_diff = d;
+        }
+        int ok = (pred == tb_label[s]);
+        printf("sample %02d | lbl=%d pred=%d %s | max_logit_diff=%.4f\n",
+               s, tb_label[s], pred, ok ? "MATCH" : "MISS ", max_diff);
+        if (ok) passed++; else failed++;
+    }
+    printf("\n-- Summary --\n");
+    printf("MATCH : %d / %d\n", passed, TB_N);
+    printf("MISS  : %d / %d\n", failed, TB_N);
+    return 0;
+}

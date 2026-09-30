@@ -1,0 +1,25 @@
+#include "fc_layer.hpp"
+
+typedef ap_fixed<{{ data_w }},{{ data_i }}> fc_w_t;
+typedef ap_fixed<{{ acc_w }},{{ acc_i }},AP_TRN,AP_SAT> fc_acc_t;
+
+static const fc_w_t fc_w[{{ fc_out }}][{{ fc_in }}] =
+{{ weights }};
+static const fc_acc_t fc_b[{{ fc_out }}] =
+{{ bias }};
+
+void fc_layer(data_t input[{{ fc_in }}], data_t output[{{ fc_out }}]) {
+    FC_LOOP_O: for (int o = 0; o < {{ fc_out }}; o++) {
+        #pragma HLS PIPELINE II={{ fc_ii }}
+        fc_acc_t acc = fc_b[o];
+        FC_LOOP_I: for (int i = 0; i < {{ fc_in }}; i++) {
+{% if unroll_i == 0 %}
+            #pragma HLS UNROLL
+{% elif unroll_i > 1 %}
+            #pragma HLS UNROLL factor={{ unroll_i }}
+{% endif %}
+            acc += (fc_acc_t)fc_w[o][i] * (fc_acc_t)input[i];
+        }
+        output[o] = (data_t)acc;
+    }
+}
